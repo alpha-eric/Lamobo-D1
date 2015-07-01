@@ -12,6 +12,7 @@ export MAKE CP LIBFS ROOTFS_BIN_DIR ROOTFS_CGI_DIR
 
 dir-y += source
 dir-y += rootfs
+dir-y += MediaPlayer pcmplayer play_client play_server
 
 
 all:

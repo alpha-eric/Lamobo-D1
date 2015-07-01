@@ -1,0 +1,4 @@
+*.d
+*/BUILD*
+*.o
+play_client/play_client
