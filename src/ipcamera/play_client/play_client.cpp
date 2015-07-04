@@ -8,6 +8,9 @@
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <sys/ioctl.h>
+#include <linux/input.h>
+#include <notify.h>
 
 #define SERVER_ADDR "192.168.0.1"
 #define SERVER_PORT 3702
@@ -45,6 +48,8 @@ int main(int argc, const char *argv[])
 	char *buf = NULL;
 	int ret = 0;
 	int len = 0;
+	int data_count = 0;
+	struct notify_t notify;
 	do {
 		sock4 = setupV4(SERVER_ADDR, SERVER_PORT);
 		if (sock4 < 0) {
@@ -74,6 +79,12 @@ int main(int argc, const char *argv[])
 				len -= ret;
 				offset += ret;
 			} while(len > 0);
+			data_count = 0
+			ioctl(fd, FIONREAD, &data_count);
+			if (data_count == sizeof(struct notify_t) {
+				recv(sock4, &notify, sizeof(struct notify_t), 0);
+				fprintf(stderr, "key event: %d", notify.type);
+			}
 		}
 	} while (false);
 	if (sock4 > 0) {
