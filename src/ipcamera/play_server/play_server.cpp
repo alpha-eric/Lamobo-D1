@@ -8,9 +8,66 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <pthread.h>
+#include <linux/input.h>
 #include "AudioSink.h"
+#include "notify.h"
 
 using namespace akmedia;
+static bool connection_exit = false;
+
+static void notify_handler(int conn)
+{
+	do {
+		int gpio = open(KEY_GPIO_DEV, O_RDONLY);
+		if (gpio < 0) {
+			fprintf(stderr, "open gpio dev failed.\n");
+			break;
+		}
+		struct input_event key_event[64];
+		fprintf(stderr, "input size:%d key:%d\n", sizeof(struct input_event), sizeof(key_event));
+		struct notify_t notify;	
+		do {
+			fd_set rset;
+			FD_ZERO(&rset);
+			FD_SET(gpio, &rset);
+			ret = select(gpio + 1, &rset, NULL, NULL, NULL);
+			if (ret < 1) {
+				fprintf(stderr, "select return fail.\n");
+				break;
+			}
+			if (FD_ISSET(gpio, &rset)) {
+				int e_size = read(gpio, key_event, sizeof(struct input_event) * sizeof(key_event));	
+				if (e_size < sizeof(struct input_event)) {
+					fprintf(stderr, "expect %d bytes, but got %d bytes\n", sizeof(struct input_event), e_size);
+					break;
+				}
+				for (int i = 0; i < e_size; i+=sizeof(struct input_event)) {
+					if (EV_KEY != key_event[i].type) {
+						continue;
+					}
+					fprintf(stderr, "key:%d\n", key_event[i].code);
+					notify.type = key_event[i].type;
+					notify.happen_sec = time_t(NULL);
+					send(conn, &notify, sizeof(struct notify_t), MSG_DONTWAIT | MSG_NOSIGNAL);	
+				}
+			}
+		} while (!connection_exit);
+		close(gpio);
+	} while (!connection_exit);
+}
+
+void create_notify_thread(int conn)
+{
+	pthread_t pid;
+        pthread_attr_t attr;
+        pthread_attr_init(&attr);
+        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+        size_t stackSize = 8*1024;
+        pthread_attr_setstacksize(&attr, stackSize);
+        pthread_create(&pid, &attr, (void *(*)(void *)) notify_handler, conn);
+        pthread_attr_destroy(&attr);	
+}
 
 int progress_connection(int conn)
 {
@@ -25,6 +82,7 @@ int progress_connection(int conn)
 	CAudioSink play;
 	int max_buf_size = (sample_rate * channels * sample_bits);
 	fprintf(stderr, "prepare buf %d\n", max_buf_size);
+	create_notify_therad(conn);
 	do {
 		buf = 
 		  (T_U8 *)malloc(max_buf_size);
@@ -41,7 +99,7 @@ int progress_connection(int conn)
 		}
 		play.start();
 		int count = 0;
-		while ((len = recv(conn, buf, max_buf_size, 0)) > 0) {
+		while (!connection_exit && (len = recv(conn, buf, max_buf_size, 0)) > 0) {
 			fprintf(stderr, "read %d\n", len);
 			count += len;
 			ret = play.render(buf, len);
@@ -59,6 +117,7 @@ int progress_connection(int conn)
 	if (buf) {
 		free(buf);
 	}
+	connection_exit = true;
 	fprintf(stderr, "finish one song\n");
 	return 0;
 }
@@ -106,10 +165,11 @@ int main(int argc, const char *argv[])
             }else{
                 continue;
             }
-			progress_connection(conn);
+	    connection_exit = false;
+	    progress_connection(conn);
             close(conn);
-			fprintf(stderr, "connection is close\n");
-		}else{
+	    fprintf(stderr, "connection is close\n");
+	}else{
             continue;
         }
 	}while(true);
