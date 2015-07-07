@@ -8,16 +8,19 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <linux/input.h>
 #include "AudioSink.h"
 #include "notify.h"
 
+#define KEY_GPIO_DEV        "/dev/input/event0"
 using namespace akmedia;
 static bool connection_exit = false;
 
 static void notify_handler(int conn)
 {
+	int ret = 0;
 	do {
 		int gpio = open(KEY_GPIO_DEV, O_RDONLY);
 		if (gpio < 0) {
@@ -46,15 +49,16 @@ static void notify_handler(int conn)
 					if (EV_KEY != key_event[i].type) {
 						continue;
 					}
-					fprintf(stderr, "key:%d\n", key_event[i].code);
-					notify.type = key_event[i].type;
-					notify.happen_sec = time_t(NULL);
-					send(conn, &notify, sizeof(struct notify_t), MSG_DONTWAIT | MSG_NOSIGNAL);	
+					notify.type = htonl(key_event[i].code);
+					notify.happen_sec = htonl(time_t(NULL));
+					ret = send(conn, &notify, sizeof(struct notify_t), MSG_DONTWAIT | MSG_NOSIGNAL);	
+					fprintf(stderr, "key:%d, size:%d\n", key_event[i].code, ret);
 				}
 			}
 		} while (!connection_exit);
 		close(gpio);
 	} while (!connection_exit);
+	pthread_exit(EXIT_SUCCESS);
 }
 
 void create_notify_thread(int conn)
@@ -65,7 +69,7 @@ void create_notify_thread(int conn)
         pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
         size_t stackSize = 8*1024;
         pthread_attr_setstacksize(&attr, stackSize);
-        pthread_create(&pid, &attr, (void *(*)(void *)) notify_handler, conn);
+        pthread_create(&pid, &attr, (void *(*)(void *)) notify_handler, (void *)conn);
         pthread_attr_destroy(&attr);	
 }
 
@@ -82,7 +86,7 @@ int progress_connection(int conn)
 	CAudioSink play;
 	int max_buf_size = (sample_rate * channels * sample_bits);
 	fprintf(stderr, "prepare buf %d\n", max_buf_size);
-	create_notify_therad(conn);
+	create_notify_thread(conn);
 	do {
 		buf = 
 		  (T_U8 *)malloc(max_buf_size);

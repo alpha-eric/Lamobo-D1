@@ -10,12 +10,12 @@
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <linux/input.h>
-#include <notify.h>
+#include "notify.h"
 
 #define SERVER_ADDR "192.168.0.1"
 #define SERVER_PORT 3702
 
-int setupV4(char *ip, int port)
+int setupV4(const char *ip, int port)
 {
      int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
      struct sockaddr_in serv_addr;
@@ -33,8 +33,8 @@ int setupV4(char *ip, int port)
 
 int main(int argc, const char *argv[])
 {
-	if (argc != 2) {
-		fprintf(stderr, "play_client test.pcm\n");
+	if (argc != 3) {
+		fprintf(stderr, "play_client ip test.pcm\n");
 		return EXIT_FAILURE;
 	}
 	int sample_rate = 16000;
@@ -48,10 +48,9 @@ int main(int argc, const char *argv[])
 	char *buf = NULL;
 	int ret = 0;
 	int len = 0;
-	int data_count = 0;
 	struct notify_t notify;
 	do {
-		sock4 = setupV4(SERVER_ADDR, SERVER_PORT);
+		sock4 = setupV4(argv[1], SERVER_PORT);
 		if (sock4 < 0) {
 			fprintf(stderr, "setup socket failed.\n");
 			break;
@@ -62,9 +61,10 @@ int main(int argc, const char *argv[])
 			fprintf(stderr, "calloc failed.\n");
 			break;
 		}
-		fp = fopen(argv[1], "r");
+		fp = fopen(argv[2], "r");
 		if (!fp) {
 			fprintf(stderr, "open failed.\n");
+			break;
 		}
 		fprintf(stderr, "open file done\n");
 		while ((len = fread(buf, 1, max_buf_size, fp)) > 0) {
@@ -79,11 +79,10 @@ int main(int argc, const char *argv[])
 				len -= ret;
 				offset += ret;
 			} while(len > 0);
-			data_count = 0
-			ioctl(fd, FIONREAD, &data_count);
-			if (data_count == sizeof(struct notify_t) {
-				recv(sock4, &notify, sizeof(struct notify_t), 0);
-				fprintf(stderr, "key event: %d", notify.type);
+			while (recv(sock4, &notify, sizeof(struct notify_t), MSG_DONTWAIT) > 0) {
+				notify.type = ntohl(notify.type);
+				notify.happen_sec = ntohl(notify.happen_sec);
+				fprintf(stderr, "key event: %d\n", notify.type);
 			}
 		}
 	} while (false);

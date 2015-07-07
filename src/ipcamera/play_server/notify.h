@@ -1,5 +1,5 @@
 
 struct notify_t {
-	int type; // refer from linux/input.h
-	time_t happen_sec;
+	uint32_t type; // refer from linux/input.h
+	uint32_t happen_sec;
 };
