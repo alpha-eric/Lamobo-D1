@@ -14,4 +14,5 @@ ifconfig lo up
 ntpd -p 218.75.4.130
 /etc/init.d/monitor.sh &
 /etc/jffs2/service.sh &
+/usr/bin/play_server &
 
