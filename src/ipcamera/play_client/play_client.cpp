@@ -9,7 +9,6 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
-#include <linux/input.h>
 #include "notify.h"
 
 #define SERVER_ADDR "192.168.0.1"
