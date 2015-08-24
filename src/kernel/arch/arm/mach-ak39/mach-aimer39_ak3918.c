@@ -558,6 +558,19 @@ static struct gpio_keys_button gpio_keys_button[] = {
 		.dir			= AK_GPIO_DIR_INPUT,
 		.int_pol		= AK_GPIO_INT_LOWLEVEL,
 	},
+	{
+		.code			= KEY_2,
+		.type			= EV_KEY,
+		.gpio			= AK_GPIO_29,
+		.active_low		= 1,
+		.wakeup			= 0,
+		.debounce_interval	= 30, /* ms */
+		.desc			= "notify",
+		.pullup			= AK_PULLUP_ENABLE,
+		.pulldown		= -1,
+		.dir			= AK_GPIO_DIR_INPUT,
+		.int_pol		= AK_GPIO_INT_LOWLEVEL,
+	},
 };
 
 static struct akgpio_keys_platform_data gpio_keys_platform_data = {
