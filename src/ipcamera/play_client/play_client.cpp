@@ -16,18 +16,18 @@
 
 int setupV4(const char *ip, int port)
 {
-     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-     struct sockaddr_in serv_addr;
-     memset((unsigned char *)&serv_addr, 0x00, sizeof(serv_addr));
-     serv_addr.sin_family = AF_INET;
-     serv_addr.sin_port = htons(port);
-     inet_pton(AF_INET, ip, &serv_addr.sin_addr);
-     if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-          fprintf(stderr, "ipv4 connect failed:%s\n", strerror(errno));
-          close(sock);
-          sock = -1;
-     }
-     return sock;
+	int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	struct sockaddr_in serv_addr;
+	memset((unsigned char *)&serv_addr, 0x00, sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_port = htons(port);
+	inet_pton(AF_INET, ip, &serv_addr.sin_addr);
+	if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+		fprintf(stderr, "ipv4 connect failed:%s\n", strerror(errno));
+		close(sock);
+		sock = -1;
+	}
+	return sock;
 }
 
 int main(int argc, const char *argv[])
@@ -66,24 +66,27 @@ int main(int argc, const char *argv[])
 			break;
 		}
 		fprintf(stderr, "open file done\n");
-		while ((len = fread(buf, 1, max_buf_size, fp)) > 0) {
-			int offset = 0;
-			fprintf(stderr, "send %d\n", len);
-			do {
-				ret = send(sock4, buf + offset, len, 0);	
-				if (ret < 0) {
-					fprintf(stderr, "send data failed.\n");
-					break;
+		do {
+			while ((len = fread(buf, 1, max_buf_size, fp)) > 0) {
+				int offset = 0;
+				fprintf(stderr, "send %d\n", len);
+				do {
+					ret = send(sock4, buf + offset, len, 0);	
+					if (ret < 0) {
+						fprintf(stderr, "send data failed.\n");
+					} else {
+						len -= ret;
+						offset += ret;
+					}
+				} while(len > 0);
+				while (recv(sock4, &notify, sizeof(struct notify_t), MSG_DONTWAIT) > 0) {
+					notify.type = ntohl(notify.type);
+					notify.happen_sec = ntohl(notify.happen_sec);
+					fprintf(stderr, "key event: %d\n", notify.type);
 				}
-				len -= ret;
-				offset += ret;
-			} while(len > 0);
-			while (recv(sock4, &notify, sizeof(struct notify_t), MSG_DONTWAIT) > 0) {
-				notify.type = ntohl(notify.type);
-				notify.happen_sec = ntohl(notify.happen_sec);
-				fprintf(stderr, "key event: %d\n", notify.type);
 			}
-		}
+			rewind(fp);
+		} while(true);
 	} while (false);
 	if (sock4 > 0) {
 		close(sock4);
